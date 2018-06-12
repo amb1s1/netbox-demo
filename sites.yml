@@ -1,0 +1,27 @@
+---
+    - name: TASK01 - CHECK IF SITE EXISTS
+      uri:
+        url: "{{ netbox_base_url }}dcim/sites/?slug={{site_name|lower}}"
+        method: GET
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Token {{token}}"
+        status_code: 200
+        body_format: json
+      register: site_result
+
+    - name: TASK02 - CREATE SITES
+      uri:
+        url: "{{ netbox_base_url }}dcim/sites/"
+        method: POST
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Token {{token}}"
+        body: '{
+                "name": "{{site_name}}",
+                "slug": "{{site_name | lower }}"
+              }'
+        status_code: 201
+        body_format: json
+      when: site_result.json.count == 0
+      ignore_errors: yes

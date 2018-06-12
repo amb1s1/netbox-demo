@@ -1,0 +1,103 @@
+---
+    - name: TASK01 - CHECK IF MANUFACTORES EXISTS
+      uri:
+        url: "{{ netbox_base_url }}dcim/manufacturers/?slug={{item | lower | replace (' ','-')}}"
+        method: GET
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Token {{token}}"
+        statu_code: 200
+      register: is_manufactures
+      with_items: "{{ manufactures }}"
+      run_once: yes
+
+    - name: TASK02 - CREATE NEW MANUFACTURES
+      uri:
+        url: "{{ netbox_base_url }}dcim/manufacturers/"
+        method: POST
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Token {{token}}"
+        body: '{
+                "name": "{{item.item }}",
+                "slug": "{{item.item | lower | replace (" " , "-") }}"
+              }'
+        status_code: 201
+        body_format: json
+      with_items: "{{ is_manufactures.results }}"
+      when: item.json.count == 0
+      run_once: yes
+
+    - name: TASK03 - GETTING ALL MANUFACTORES
+      uri:
+        url: "{{ netbox_base_url }}dcim/manufacturers/"
+        method: GET
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Token {{token}}"
+        statu_code: 200
+      register: all_manufactures
+      run_once: yes
+
+    - name: TASK04 - CHECK IF PLATFORMS EXISTS
+      uri:
+        url: "{{ netbox_base_url }}dcim/platforms/?slug={{item.name | lower | replace (' ','-')}}"
+        method: GET
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Token {{token}}"
+        statu_code: 200
+      register: is_platforms
+      with_items: "{{ platforms }}"
+      run_once: yes
+
+    - name: TASK05 - CREATE NEW PLATFORMS
+      uri:
+        url: "{{ netbox_base_url }}dcim/platforms/"
+        method: POST
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Token {{token}}"
+        body: '{
+                "name": "{{item.item.name }}",
+                "slug": "{{item.item.name | lower | replace (" " , "-") }}",
+                "manufacturer": {% for manufacture in all_manufactures.json.results %}
+                                  {% if manufacture.name == item.item.vendor %}
+                                  {{manufacture.id | int}},
+                                    {% endif %}
+                                  {% endfor %}
+                "napalm_driver": "{{ item.item.napalm_driver }}"
+                                
+              }'
+        status_code: 201
+        body_format: json
+      with_items: "{{ is_platforms.results }}"
+      when: item.json.count == 0
+      run_once: true
+      run_once: yes
+
+
+    - name: TASK06 - UPDATE PLATFORMS
+      uri:
+        url: "{{ netbox_base_url }}dcim/platforms/{{item.json.results[0].id | int }}/"
+        method: PATCH
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Token {{token}}"
+        body: '{
+                "name": "{{item.item.name }}",
+                "slug": "{{item.item.name | lower | replace (" " , "-") }}",
+                "manufacturer": {% for manufacture in all_manufactures.json.results %}
+                                  {% if manufacture.name == item.item.vendor %}
+                                  {{manufacture.id | int}},
+                                    {% endif %}
+                                  {% endfor %}
+                                
+                "napalm_driver": "{{ item.item.napalm_driver }}"
+              }'
+        status_code: 200
+        body_format: json
+      with_items: "{{ is_platforms.results }}"
+      when: item.json.count != 0
+      run_once: yes
+

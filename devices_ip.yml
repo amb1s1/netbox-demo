@@ -1,0 +1,78 @@
+---
+  - name: TASK01 - Getting DEVICE ID
+    uri:
+      url: "{{ netbox_base_url }}dcim/devices/?q={{inventory_hostname|lower}}"
+      method: GET
+      headers:
+        Content-Type: "application/json"
+        Authorization: "Token {{token}}"
+      status_code: 200
+    register: is_device
+
+  - name: TASK02 - SETTING FACTS
+    set_fact:
+      mgmt_int: "{{interfaces[model|lower|replace(' ','-')]['management'][0]}}"
+      device_name: "{{inventory_hostname | lower }}"
+      device_id: "{{is_device.json.results[0].id}}"
+
+  - name: TASK01 - GETTING INTERFACE ID
+    uri:
+      url: "{{ netbox_base_url }}dcim/interfaces/?name={{mgmt_int}}&device={{device_name}}"
+      method: GET
+      headers:
+        Content-Type: "application/json"
+        Authorization: "Token {{token}}"
+      status_code: 200
+    register: is_interface
+
+  - name: TASK01 - CHECKING IF IP EXISTS
+    uri:
+      url: "{{ netbox_base_url }}ipam/ip-addresses/?q={{ip}}/24"
+      method: GET
+      headers:
+        Content-Type: "application/json"
+        Authorization: "Token {{token}}"
+      status_code: 200
+    register: is_ip
+
+
+  - name: TASK - ADDING IP
+    uri:
+      url: "{{ netbox_base_url }}ipam/ip-addresses/"
+      method: POST
+      headers:
+        Content-Type: "application/json"
+        Authorization: "Token {{token}}"
+      body: '{
+                "address": "{{ip}}/24",
+                "interface": {{ is_interface.json.results[0].id | int }},
+                "descriptiom": "management"
+             }
+            '
+      status_code: 201
+      body_format: json
+    ignore_errors: yes
+    register: ip_new
+    when: is_ip.json.count == 0
+
+  - name: DEBUG!!!!!
+    debug:
+        var: ip_new
+
+  - name: TASK - MAKING MGMT IP PRIMARY
+    uri:
+      url: "{{ netbox_base_url }}dcim/devices/{{device_id}}/"
+      method: PATCH
+      headers:
+        Content-Type: "application/json"
+        Authorization: "Token {{token}}"
+      body: '{
+                "primary_ip": {{ip_new.json.id | int}},
+                "primary_ip4": {{ip_new.json.id | int}} 
+             }
+            '
+      status_code: 200
+      body_format: json
+    ignore_errors: yes
+    when: is_ip.json.count == 0
+

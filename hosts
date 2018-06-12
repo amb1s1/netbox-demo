@@ -1,0 +1,24 @@
+[cisco:vars]
+site_name=NYC
+
+[cisco]
+csr1  ip="10.0.0.51"  os="cisco-ex"  model="cisco CSR1000V"  vendor=cisco  role=router
+csr2  ip="10.0.0.52"  os="cisco-ex"  model="cisco CSR1000V"  vendor=cisco  role=router
+csr3  ip="10.0.0.53"  os="cisco-ex"  model="cisco CSR1000V"  vendor=cisco  role=router
+nxos-spine1  os="cisco-nx-os"  ip="10.0.0.71"  model="cisco NX-OSv Chassis"  vendor=cisco  role=core-switch
+nxos-spine2  os="cisco-nx-os" ip="10.0.0.72"  model="cisco NX-OSv Chassis"  vendor=cisco  role=core-switch
+
+[other:vars]
+site_name=LAX
+
+[other]
+eos-spine1  os="arista-eos"  ip="10.0.0.11"  model=vEOS  vendor=arista  role=core-switch
+eos-spine2  os="arista-eos"  ip="10.0.0.12"  model=vEOS  vendor=arista  role=core-switch
+eos-leaf1   os="arista-eos"  ip="10.0.0.21"  model=vEOS  vendor=arista  role=access-switch
+eos-leaf2   os="arista-eos"  ip="10.0.0.22"  model=vEOS  vendor=arista  role=access-switch
+vmx7  os="juniper-junos"  ip="10.0.0.37"  model=VMX  vendor=juniper  role=core-switch
+vmx8  os="juniper-junos" ip="10.0.0.38"  model=VMX  vendor=juniper  role=core-switch
+vmx9  os="juniper-junos" ip="10.0.0.39"  model=VMX  vendor=juniper  role=core-switch
+
+[ntc]
+34.230.114.199

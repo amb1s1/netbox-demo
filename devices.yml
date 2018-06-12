@@ -1,0 +1,204 @@
+---
+    
+    - name: TASK01 - GETTING PLATFORM ID
+      uri:
+        url: "{{ netbox_base_url }}dcim/platforms/?slug={{os|lower}}"
+        method: GET
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Token {{token}}"
+        status_code: 200
+      register: platform
+      
+    - name: TASK01 - GETTING MANUFACTURER ID
+      uri:
+        url: "{{ netbox_base_url }}dcim/manufacturers/?slug={{vendor|lower}}"
+        method: GET
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Token {{token}}"
+        status_code: 200
+      register: manufacturer
+      
+    - name: TASK02 - CHECK FOR DEVICE TYPE EXISTS
+      uri:
+        url: "{{ netbox_base_url }}dcim/device-types/?slug={{ model | lower | replace(' ','-')  }}"
+        method: GET
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Token {{token}}"
+        status_code: 200
+      register: device_type_result
+
+    - name: TASK03 - CREATE NEW DEVICE TYPE
+      uri:
+        url: "{{ netbox_base_url }}dcim/device-types/"
+        method: POST
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Token {{token}}"
+        body: '{
+                  "manufacturer": "{{manufacturer.json.results[0].id}}",
+                  "model": "{{ model }}",
+                  "slug": "{{ model|lower|replace(" ","-") }}",
+                  "is_console_server": false,
+                  "is_network_device": true,
+              }
+            '
+        status_code: 201
+        body_format: json
+      ignore_errors: yes
+      register: device_type_new
+      when: device_type_result.json.count | int == 0
+
+
+    - name: TASK03 - ADDING DEFAULT INTERFACE TO DEVICE TYPE
+      uri:
+        url: "{{ netbox_base_url }}dcim/interface-templates/"
+        method: POST
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Token {{token}}"
+        body: '{
+                "device_type": {{ device_type_new.json.id|int }},
+                "name": "{{item}}",
+                "slug": "{{item|lower}}",
+                "form_factor": 0,
+                "mgmt_only": false 
+               }
+              '
+        status_code: 201
+        body_format: json
+      when: device_type_result.json.count | int == 0
+      ignore_errors: yes
+      loop: "{{interfaces[model|lower|replace(' ','-')]['data']}}"
+      loop_control:
+        label: "{{ item }}"
+
+    - name: TASK03 - ADDING DEFAULT MANAGEMENT INTERFACE TO DEVICE TYPE
+      uri:
+        url: "{{ netbox_base_url }}dcim/interface-templates/"
+        method: POST
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Token {{token}}"
+        body: '{
+                "device_type": {{ device_type_new.json.id|int }},
+                "name": "{{item}}",
+                "slug": "{{item|lower}}",
+                "form_factor": 0,
+                "mgmt_only": true 
+               }
+              '
+        status_code: 201
+        body_format: json
+      when: device_type_result.json.count | int == 0
+      ignore_errors: yes
+      loop: "{{interfaces[model|lower|replace(' ','-')]['management']}}"
+      loop_control:
+        label: "{{ item }}"
+
+
+    - name: TASK04 - UPDATING DEVICE TYPE
+      uri:
+        url: "{{ netbox_base_url }}dcim/device-types/{{device_type_result.json.results[0].id}}/"
+        method: PATCH
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Token {{token}}"
+        body: '{
+                  "manufacturer": "{{manufacturer.json.results[0].id}}",
+                  "model": "{{ model }}",
+                  "slug": "{{ model|lower|replace(" ","-") }}",
+                  "is_console_server": false,
+                  "is_network_device": true,
+              }
+            '
+        status_code: 200
+        body_format: json
+      ignore_errors: yes
+      register: device_type_new
+      when: device_type_result.json.count | int != 0
+      
+    - name: TASK05 - GETTING DEVICE TYPE
+      uri:
+        url: "{{ netbox_base_url }}dcim/device-types/?slug={{ model | lower | replace(' ','-')  }}"
+        method: GET
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Token {{token}}"
+        status_code: 200
+      register: device_type_result
+
+
+    - name: TASK06 - GETTING DEVICE ID 
+      uri:
+        url: "{{ netbox_base_url }}dcim/device-roles/?slug={{ role }}"
+        method: GET
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Token {{token}}"
+        status_code: 200
+      register: device_role_result
+    
+    - name: TASK07 - GETTING SITE ID
+      uri:
+        url: "{{ netbox_base_url }}dcim/sites/?slug={{site_name|lower}}"
+        method: GET
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Token {{token}}"
+        status_code: 200
+      register: site_result
+    
+    - name: TASK08 - CHECKING IF DEVICE EXISTS
+      uri:
+        url: "{{ netbox_base_url }}dcim/devices/?q={{inventory_hostname|lower}}"
+        method: GET
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Token {{token}}"
+        status_code: 200
+      register: is_device
+
+    - name: TASK09 - Creating Devices
+      uri:
+        url: "{{ netbox_base_url }}dcim/devices/"
+        method: POST
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Token {{token}}"
+        body: '{
+                  "name": "{{ inventory_hostname }}",
+                  "manufacturer": {{ manufacturer.json.results[0].id | int }},
+                  "device_type": {{ device_type_result.json.results[0].id | int }},
+                  "device_role": {{ device_role_result.json.results[0].id | int }},
+                  "site": {{ site_result.json.results[0].id | int}},
+                  "platform": {{platform.json.results[0].id | int}},
+                  "status": 1
+              }
+            '
+        status_code: 201
+        body_format: json
+      when: is_device.json.count == 0
+
+    - name: TASK10 - UPDATING Devices
+      uri:
+        url: "{{ netbox_base_url }}dcim/devices/{{is_device.json.results[0].id}}/"
+        method: PATCH
+        headers:
+          Content-Type: "application/json"
+          Authorization: "Token {{token}}"
+        body: '{
+                  "name": "{{ inventory_hostname }}",
+                  "manufacturer": {{ manufacturer.json.results[0].id | int }},
+                  "device_type": {{ device_type_result.json.results[0].id | int }},
+                  "device_role": {{ device_role_result.json.results[0].id | int }},
+                  "site": {{ site_result.json.results[0].id | int}},
+                  "platform": {{platform.json.results[0].id  | int}},
+                  "status": 1
+              }
+            '
+        status_code: 200
+        body_format: json
+      when: is_device.json.count != 0

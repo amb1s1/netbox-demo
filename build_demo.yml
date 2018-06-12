@@ -1,0 +1,25 @@
+---
+- name: Building Netbox Demo
+  hosts: cisco,other
+  gather_facts: no
+  connection: local
+
+  tasks:
+
+    - name: "INCLUDING SITES YML"
+      include: sites.yml
+      tags: sites
+
+    - name: "INCLUDING PLATFORM YML"
+      include: platforms.yml
+      tags: platforms
+
+    - name: "INCLUDING DEVICES YML"
+      include: devices.yml
+      tags: devices
+
+    - name: "INCLUDING DEVICE_IP YML"
+      include: devices_ip.yml
+      tags: devices_ip
+
+

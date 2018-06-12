@@ -1,0 +1,8 @@
+---
+
+     - debug:
+         msg: "{{item}}"
+       loop: "{{interfaces[model|lower|replace(' ','-')]['data']}}"
+       loop_control:
+         label: "{{item}}"
+       run_once: yes

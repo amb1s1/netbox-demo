@@ -1,0 +1,188 @@
+---
+- name: "NETBOX DEMO"
+  hosts: ntc
+  remote_user: ntc
+  become_method: sudo
+  become: yes
+  gather_facts: no
+
+  tasks:
+
+    - name: TASK01 - MAKE SURE THAT PIP IS INSTALL
+      command: "pip --version"
+      register: is_pip
+      ignore_errors: yes
+
+    - name: TASK02 - DOWNLOAD get-pip.py
+      get_url: url=https://bootstrap.pypa.io/get-pip.py  dest=/tmp
+      when: is_pip.failed
+    
+    - name: TASK03 - INSTALLING PIP
+      command: "python /tmp/get-pip.py"
+      when: is_pip.failed
+    
+    - name:  TASK04 - DELETING get-pip.py
+      file: state=absent path=/tmp/get-pip.py
+      when: is_pip.failed
+    
+    - name: TASK05 - INSTALLING PSYCOPG2
+      pip:
+       name: psycopg2
+    
+    - name: TASK05 - INSTALLING NAPALM
+      pip:
+       name: napalm
+       executable: pip   
+    - name: TASK06 - INSTALLING POSTGRESQL REPO
+      yum:
+        name: https://download.postgresql.org/pub/repos/yum/9.6/redhat/rhel-7-x86_64/pgdg-centos96-9.6-3.noarch.rpm
+    
+    - name: TASK07 - INSTALLING GIT
+      yum:
+        name: git
+    
+    - name: TASK08 - INSTALLING EPEL repositories
+      yum:
+        name: epel-release
+    
+    - name: TASK09 - INSTALLING POSTGRESQL
+      yum:
+        name: "{{item}}"  
+      with_items:
+        - postgresql96
+        - postgresql96-server
+        - postgresql96-devel
+    
+    - name: TASK10 - INSTALLING PYTHON3
+      yum:
+        name: "{{item}}"  
+      with_items:
+        - gcc
+        - python34
+        - python34-devel
+        - python34-setuptools
+        - libxml2-devel
+        - libxslt-devel 
+        - libffi-devel
+        - graphviz
+        - openssl-devel
+        - redhat-rpm-config
+    
+    - name: TASK11 - INSTALL PIP3
+      easy_install:
+        name: pip
+        executable: easy_install-3.4
+    
+    - name: TASK12 - POSTGRESQL INITDB
+      command: /usr/pgsql-9.6/bin/postgresql96-setup initdb
+      ignore_errors: true
+    
+    - name: TASK13 - COPY POSTGRESQL CONFIG FILE
+      copy:
+        src: files/pg_hba.conf
+        dest: /var/lib/pgsql/9.6/data/pg_hba.conf
+    
+    - name: TASK14 - ENABLE AND START POSTGRESQL
+      service:
+        name: postgresql-9.6
+        state: restarted
+        enabled: yes
+    
+    - name: TASK015 - CREATING NETBOX DATABASE
+      become_user: postgres
+      become: yes
+      postgresql_db:
+        name: netbox
+    
+    - name: TASK16 - ADDING NETBOX USERNAME TO PROSTGREQL
+      become_user: postgres
+      become: yes
+      postgresql_user:
+        name: netbox
+        password: netbox
+        db: netbox
+        priv: "ALL"
+    
+    - name: TASK17 - CREATING NETBOX DIRECTORY
+      file:
+        path: /opt/netbox/
+        state: directory
+    
+    - name: TASK18 - CLONE NETBOX
+      git:
+        repo: https://github.com/digitalocean/netbox.git
+        dest: /opt/netbox/
+    
+    - name: TASK19 - INSTALLING NETBOX REQUIREMENTS
+      pip:
+        executable: pip3.4
+        requirements: /opt/netbox/requirements.txt
+    
+    - name: TASK20 - COPY NETBOX CONFIG
+      copy:
+        src: files/configuration.py
+        dest: /opt/netbox/netbox/netbox/configuration.py
+      tags: 
+        - netbox_restart 
+        - config_restart
+
+    - name: TASK21 - RUN NETBOX DATABASE MIGRATION
+      command: "python3 /opt/netbox/netbox/manage.py migrate"
+      tags: netbox_restart 
+
+    - name: TASK22 - CHECK IF USERS EXISTS
+      shell: echo "from django.contrib.auth import get_user_model; User = get_user_model(); print(User.objects.filter(username='{{item.username}}').count()>0)" | python3 /opt/netbox/netbox/manage.py shell
+      register: checksuperuser
+      ignore_errors: yes
+      with_items: "{{netbox_users}}"
+      tags: netbox_restart 
+
+    - name: TASK24 - CREATING SEUPERUSER
+      command: python3 /opt/netbox/netbox/manage.py shell -c "from django.contrib.auth.models import User; User.objects.create_superuser('{{item.item.username}}', '{{item.item.username}}@ntc.com', '{{item.item.password}}')"
+      when: item.stdout == "False"
+      with_items: "{{checksuperuser.results}}"
+      tags: netbox_restart 
+    
+    - name: TASK25 - COLLECTING STATIC FILES
+      command: "python3 /opt/netbox/netbox/manage.py collectstatic --no-input"
+      tags: netbox_restart 
+    
+    - name: TASK26 - LOADING SOME INITIAL DATA
+      command: "python3 /opt/netbox/netbox/manage.py loaddata initial_data"
+
+    - name: "27 COPYING netbox-runserver SHELL SCRIPT"
+      copy:
+        src: files/netbox-runserver.sh
+        dest: /home/ntc/netbox-runserver.sh
+        mode: 0755
+    
+    - name: TASK27 - RUNNING DEMO SERVER ON BACKGROUD
+      shell: "/home/ntc/netbox-runserver.sh"
+      tags: 
+        - netbox_restart 
+        - config_restart  
+    
+    - name: TASK28 - CHECK API TOKEN EXISTS
+      shell: echo "from users.models import Token; from django.contrib.auth.models import User; nb_user = User.objects.get(username='{{item.username}}'); token = Token.objects.filter(key='{{ item.token }}'); print(list(token.values()))" | python3 /opt/netbox/netbox/manage.py shell
+      ignore_errors: yes
+      register: is_token
+      with_items: "{{netbox_users}}"
+      tags: netbox_restart 
+
+    - name: TASK28 - CREATE NETBOX API TOKEN
+      shell: echo "from users.models import Token; from django.contrib.auth.models import User; nb_user = User.objects.get(username='{{item.item.username}}'); token = Token.objects.create(user=nb_user,key='{{item.item.token}}'); token.save()" | python3 /opt/netbox/netbox/manage.py shell
+      ignore_errors: yes
+      with_items: "{{is_token.results}}"
+      when: (item.stdout | length)  < 10
+      tags: netbox_restart 
+
+
+    - name: 29 - FIREWALLD ALLOW PORT 80
+      firewalld:
+        zone: public
+        service: http
+        permanent: true
+        state: enabled 
+        immediate : yes
+      tags: allow_http
+
