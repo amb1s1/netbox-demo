@@ -1,7 +1,7 @@
 ---
 - name: "NETBOX DEMO"
-  hosts: ntc
-  remote_user: ntc
+  hosts: all
+  remote_user: root
   become_method: sudo
   become: yes
   gather_facts: no
@@ -149,6 +149,12 @@
     
     - name: TASK26 - LOADING SOME INITIAL DATA
       command: "python3 /opt/netbox/netbox/manage.py loaddata initial_data"
+    
+    - name: TASK27 - CREATING NNTC DIRECTORY
+      file:
+        path: /home/ntc
+        state: directory
+    
 
     - name: "27 COPYING netbox-runserver SHELL SCRIPT"
       copy:
@@ -185,4 +191,5 @@
         state: enabled 
         immediate : yes
       tags: allow_http
+      ignore_errors: yes
 
