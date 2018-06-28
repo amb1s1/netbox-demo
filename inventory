@@ -19,6 +19,3 @@ eos-leaf2   os="arista-eos"  ip="10.0.0.22"  model=vEOS  vendor=arista  role=acc
 vmx7  os="juniper-junos"  ip="10.0.0.37"  model=VMX  vendor=juniper  role=core-switch
 vmx8  os="juniper-junos" ip="10.0.0.38"  model=VMX  vendor=juniper  role=core-switch
 vmx9  os="juniper-junos" ip="10.0.0.39"  model=VMX  vendor=juniper  role=core-switch
-
-[ntc]
-34.230.114.199

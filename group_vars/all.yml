@@ -3,7 +3,7 @@ app_path: /opt/netbox/netbox
 token: 5eef52cd3db3fa9fe19ba9e83f56a2ca71fb7683
 netbox_base_url: http://34.230.114.199/api/
 netbox_base_url: http://localhost:8080/api/
-ansible_become_pass: ntc123
+ansible_become_pass: pass
 manufactures:
   - APC
   - Cisco
@@ -212,16 +212,4 @@ interfaces:
       - em1
     data:
       - em2
-
-
-     
-
-
-
-
-
-
-
-
-
 
