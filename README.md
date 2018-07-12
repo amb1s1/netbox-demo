@@ -7,6 +7,7 @@
 To bringthe demo up exec the following lines:
 
 `vagrant up`
+
 `ansible-playbook -i inventory build_demo.yml`
 
 Once the ansible playbook finished you can browse to:
