@@ -6,8 +6,8 @@
 
 To bringthe demo up exec the following lines:
 
-vagrant up
-ansible-playbook -i inventory build_demo.yml
+`vagrant up`
+`ansible-playbook -i inventory build_demo.yml`
 
 Once the ansible playbook finished you can browse to:
 `http://127.0.0.1:8080/`
